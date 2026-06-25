@@ -53,6 +53,55 @@ def sgd_with_momentum(model: nn.Sequential, dataloader: DataLoader, epochs: int,
     return loss.item()
 
 
+def adam(model: nn.Sequential, dataloader: DataLoader, epochs: int, learning_rate: float) -> float:
+    """
+    My implementation of Adam optimizer(Adaptive Moment Estimation).
+    It solves both problems of AdaGrad and SGD with Momentum:
+    takes velocity from momentum and adaptive lr from adagrad,
+    but takes tiny part of squarred grad so it will not explode.
+    What is more - at very first steps velocity and adaptive lr are very small,
+    that is why Adam biases them by dividing by (1 - beta ** t), so at very steps
+    beta ** t is bigger, but later it is close to 0.
+    """
+    momentum_beta = 0.9
+    adaptive_lr_beta = 0.999
+    time = 1    # we do not reset it every epoch!
+    epsilon = 1e-8
+
+    velocities = {param: torch.zeros_like(param) for param in model.parameters()}
+    adaptive_lrs = {param: torch.zeros_like(param) for param in model.parameters()}
+
+    for _ in range(epochs):
+        for batch_X, batch_Y in dataloader:
+            calculated_ans = model(batch_X)
+            loss = ((calculated_ans - batch_Y) ** 2).mean()
+
+            loss.backward()
+
+            with torch.no_grad():
+                for parameter in model.parameters():
+                    # v_new = beta1 * v_old + (1 - beta1) * grad
+                    new_velocity = momentum_beta * velocities[parameter] + (1 - momentum_beta) * parameter.grad
+                    # new_lr = beta2 * old_lr + (1 - beta2) * grad^2
+                    new_adaptive_lr = adaptive_lr_beta * adaptive_lrs[parameter] + (1 - adaptive_lr_beta) * (parameter.grad ** 2)
+
+                    velocities[parameter] = new_velocity
+                    adaptive_lrs[parameter] = new_adaptive_lr
+
+                    # bias_v = new_v / (1 - beta1 ^ t)
+                    bias_velocity = new_velocity / (1 - momentum_beta ** time)
+                    # bias_lr = new_lr / (1 - beta2 ^ t)
+                    bias_adaptive_lr = new_adaptive_lr / (1 - adaptive_lr_beta ** time)
+
+                    # new_weight = old_weight - lr * bias_v / (sqrt(bias_lr) + epsilon)
+                    parameter -= learning_rate * bias_velocity / (bias_adaptive_lr ** 0.5 + epsilon)
+            
+            model.zero_grad()
+            time += 1
+    
+    return loss.item()
+
+
 def adagrad(model: nn.Sequential, dataloader: DataLoader, epochs: int, learning_rate: float) -> float:
     """
     The idea is to make lr unique for every weight,
@@ -83,32 +132,46 @@ def adagrad(model: nn.Sequential, dataloader: DataLoader, epochs: int, learning_
 
 
 def compare_optimizers():
-    input_data = torch.randn([6, 5, 5], device="mps")
-    output_data = torch.rand([6, 5, 1], device="mps")
+    N = 2000
+
+    X = torch.randn(N, 20, device="mps")
+    Y = (
+        torch.sin(X[:, 0:1])
+        + torch.sin(3 * X[:, 1:2])
+        + X[:, 2:3]**3
+        + 0.1 * torch.randn_like(X[:, :1])
+    ).to(device="mps")
 
     base_model = nn.Sequential(
-        nn.Linear(in_features=5, out_features=5),
-        nn.ReLU(),
-        nn.Linear(in_features=5, out_features=1),
+    nn.Linear(20, 128),
+    nn.ReLU(),
+    nn.Linear(128, 128),
+    nn.ReLU(),
+    nn.Linear(128, 128),
+    nn.ReLU(),
+    nn.Linear(128, 1),
     ).to(device="mps")
 
     model_sgd = copy.deepcopy(base_model)
     model_momentum = copy.deepcopy(base_model)
     model_adagrad = copy.deepcopy(base_model)
+    model_adam = copy.deepcopy(base_model)
 
-    epochs = 100
-    learning_rate = 0.05
+    epochs = 20
+    learning_rate = 0.001
 
-    dataset = CustomDataset(input_data, output_data)
-    dataloader = DataLoader(dataset, batch_size=2, shuffle=True)
+    dataset = CustomDataset(X, Y)
+    dataloader = DataLoader(dataset, batch_size=64, shuffle=True)
 
     loss_from_sgd = sgd_with_mini_batches(model_sgd, dataloader, epochs, learning_rate)
     loss_from_sgd_with_momentum = sgd_with_momentum(model_momentum, dataloader, epochs, learning_rate)
-    loss_from_adagrad = adagrad(model_adagrad, dataloader, epochs, learning_rate=1.5)
+    loss_from_adagrad = adagrad(model_adagrad, dataloader, epochs, learning_rate)
+    loss_from_adam = adam(model_adam, dataloader, epochs, learning_rate)
 
-    print(f"loss without momentum: {loss_from_sgd}\n")
+    print(f"loss without momentum: {loss_from_sgd}")
     print(f"loss with momentum: {loss_from_sgd_with_momentum}")
-    print(f"loss from adagrad: {loss_from_adagrad}\n")
+    print(f"loss from adagrad: {loss_from_adagrad}")
+    print(f"loss from adam: {loss_from_adam}\n")
 
 
 
