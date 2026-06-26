@@ -31,6 +31,7 @@ def adam(model: nn.Sequential, train_dataloader: DataLoader, val_dataloader: Dat
     adaptive_lr_beta = 0.999
     time = 1    # we do not reset it every epoch!
     epsilon = 1e-8
+    lamda = 1e-4
 
     velocities = {param: torch.zeros_like(param) for param in model.parameters()}
     adaptive_lrs = {param: torch.zeros_like(param) for param in model.parameters()}
@@ -51,7 +52,9 @@ def adam(model: nn.Sequential, train_dataloader: DataLoader, val_dataloader: Dat
 
         for batch_X, batch_Y in train_dataloader:
             calculated_ans = model(batch_X)
-            train_loss = ((calculated_ans - batch_Y) ** 2).mean()
+            train_mse_loss = ((calculated_ans - batch_Y) ** 2).mean()
+            l2_penalty = sum(p.pow(2).sum() for p in model.parameters())
+            train_loss = train_mse_loss + lamda * l2_penalty
             epoch_train_loss += train_loss.item()
             
 
@@ -155,7 +158,8 @@ def benchmark():
     for epoch in range(len(val_losses)):
         print(f"epoch {epoch + 1}: train_loss {train_losses[epoch]}, val_loss {val_losses[epoch]}")
 
-    for p in model.parameters():
-        p.copy_(best_weights[p])
+    with torch.no_grad():
+        for p in model.parameters():
+            p.copy_(best_weights[p])
 
 benchmark()
