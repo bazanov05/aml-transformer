@@ -18,10 +18,11 @@ class SinDataset(Dataset):
         return (self._input[index], self._output[index])
     
 
-def adam(model: nn.Sequential, train_dataloader: DataLoader, val_dataloader: DataLoader, epochs: int, learning_rate: float) -> tuple[list, list, torch.tensor]:
+def adamw(model: nn.Sequential, train_dataloader: DataLoader, val_dataloader: DataLoader, epochs: int, learning_rate: float) -> tuple[list, list, torch.tensor]:
     """
-    Adam optimizer function, which for each epoch calculates 
+    AdamW optimizer function, which for each epoch calculates 
     the loss for training data and validation data.
+    Unlike Adam it also does weight decay which prevents weigths from exploding.
     Early stopping mechanism is implemented to prevent overfitting:
     when the validation loss is not dropping for 5 or more epochs - stop training. 
     Return the tuple of two lists : training and validation losses for each epoch,
@@ -52,9 +53,7 @@ def adam(model: nn.Sequential, train_dataloader: DataLoader, val_dataloader: Dat
 
         for batch_X, batch_Y in train_dataloader:
             calculated_ans = model(batch_X)
-            train_mse_loss = ((calculated_ans - batch_Y) ** 2).mean()
-            l2_penalty = sum(p.pow(2).sum() for p in model.parameters())
-            train_loss = train_mse_loss + lamda * l2_penalty
+            train_loss = ((calculated_ans - batch_Y) ** 2).mean()
             epoch_train_loss += train_loss.item()
             
 
@@ -77,6 +76,11 @@ def adam(model: nn.Sequential, train_dataloader: DataLoader, val_dataloader: Dat
 
                     # new_weight = old_weight - lr * bias_v / (sqrt(bias_lr) + epsilon)
                     parameter -= learning_rate * bias_velocity / (bias_adaptive_lr ** 0.5 + epsilon)
+
+                    # weight decay in adamw
+                    # adamw does this outside grad, not like L2
+                    # new_weight = new_weight - lr * lamda * old_weight
+                    parameter -= parameter * lamda * learning_rate
             
             model.zero_grad()
             time += 1
@@ -153,7 +157,7 @@ def benchmark():
     learning_rate = 0.001
 
 
-    train_losses, val_losses, best_weights = adam(model, train_dataloader, val_dataloader, epochs, learning_rate)
+    train_losses, val_losses, best_weights = adamw(model, train_dataloader, val_dataloader, epochs, learning_rate)
     
     for epoch in range(len(val_losses)):
         print(f"epoch {epoch + 1}: train_loss {train_losses[epoch]}, val_loss {val_losses[epoch]}")
