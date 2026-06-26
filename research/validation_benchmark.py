@@ -18,10 +18,12 @@ class SinDataset(Dataset):
         return (self._input[index], self._output[index])
     
 
-def adam(model: nn.Sequential, train_dataloader: DataLoader, val_dataloader: DataLoader, epochs: int, learning_rate: float) -> tuple[list, list]:
+def adam(model: nn.Sequential, train_dataloader: DataLoader, val_dataloader: DataLoader, epochs: int, learning_rate: float) -> tuple[list, list, torch.tensor]:
     """
     Adam optimizer function, which for each epoch calculates 
-    the loss for training data and validation data. 
+    the loss for training data and validation data.
+    Early stopping mechanism is implemented to prevent overfitting:
+    when the validation loss is not dropping for 5 or more epochs - stop training. 
     Return the tuple of two lists : training and validation losses for each epoch,
     to track when the model starts to overfit.
     """
@@ -35,6 +37,12 @@ def adam(model: nn.Sequential, train_dataloader: DataLoader, val_dataloader: Dat
 
     val_losses = []
     train_losses = []
+
+    # logic for early stop - when the val loss starts to grow despite train loss drop
+    best_val_loss = float("inf")
+    patience_counter = 0    # increase it when after backprop val loss becomes worse
+    limit = 5   # if val loss is not dropping for 5 iterations - stop training 
+    best_weights = {param: torch.zeros_like(param) for param in model.parameters()}
 
     for _ in range(epochs):
         # reset losses at the begining of every epoch 
@@ -82,12 +90,30 @@ def adam(model: nn.Sequential, train_dataloader: DataLoader, val_dataloader: Dat
                 epoch_val_loss += val_loss.item()
 
             epoch_val_loss /= len(val_dataloader)
+        
+        # if val loss still dropping - update the best loss and best weights
+        # also reset patience counter
+        if best_val_loss > epoch_val_loss:
+            patience_counter = 0
+            best_val_loss = epoch_val_loss
 
+            for parameter in model.parameters():
+                # allocate new memory for tensor and cut of the computational graph
+                # cause we need just weights, not the grads
+                best_weights[parameter] = parameter.clone().detach()
+        
+        # if the val loss becomes worse - increase patience counter 
+        else:
+            patience_counter += 1
+        
         val_losses.append(epoch_val_loss)
         train_losses.append(epoch_train_loss)
 
-    
-    return train_losses, val_losses
+        # if the limit is broken - stop learning 
+        if patience_counter >= limit:
+            break
+
+    return train_losses, val_losses, best_weights
 
 
 def benchmark():
@@ -124,10 +150,12 @@ def benchmark():
     learning_rate = 0.001
 
 
-    train_losses, val_losses = adam(model, train_dataloader, val_dataloader, epochs, learning_rate)
+    train_losses, val_losses, best_weights = adam(model, train_dataloader, val_dataloader, epochs, learning_rate)
     
-    for epoch in range(epochs):
+    for epoch in range(len(val_losses)):
         print(f"epoch {epoch + 1}: train_loss {train_losses[epoch]}, val_loss {val_losses[epoch]}")
 
+    for p in model.parameters():
+        p.copy_(best_weights[p])
 
 benchmark()
