@@ -1,6 +1,8 @@
+#pragma once
 #include <unordered_map>
 #include <vector>
 #include <string>
+#include <cstdint> // needed for uint64_t
 
 class Tokenizer{
     private:
