@@ -17,4 +17,5 @@ class Tokenizer{
 
     public:
     Tokenizer(std::size_t target_vocab_size);
+    void train(const std::string& text);
 };
