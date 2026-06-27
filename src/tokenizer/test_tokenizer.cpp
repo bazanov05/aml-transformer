@@ -86,3 +86,53 @@ TEST(TokenizerTest, TrainTargetSizeSmallerThanBase) {
     EXPECT_NO_THROW(tokenizer.train(text));
     EXPECT_EQ(tokenizer.get_vocab_size(), 256);
 }
+
+// 1. Happy Path - no pairs
+TEST(TokenizerTest, EncodeMethodBasic) {
+    Tokenizer tokenizer(500); 
+    std::string text_to_train = "abcdef";
+    
+    tokenizer.train(text_to_train);
+
+    std::string text_to_encode = "abc";
+    EXPECT_EQ(tokenizer.encode(text_to_encode), std::vector<int>({97, 98, 99}));
+}
+
+// 2. One char as text to encode
+TEST(TokenizerTest, EncodeOneChar) {
+    Tokenizer tokenizer(500); 
+    std::string text_to_train = "abcdef";
+    
+    tokenizer.train(text_to_train);
+
+    std::string text_to_encode = "a";
+    
+    EXPECT_EQ(tokenizer.encode(text_to_encode).size(), 1);
+    EXPECT_EQ(tokenizer.encode(text_to_encode), std::vector<int>({97}));
+}
+
+// 3. Empty string as text to encode
+TEST(TokenizerTest, EncodeEmtyString) {
+    Tokenizer tokenizer(500); 
+    std::string text_to_train = "abcdef";
+    
+    tokenizer.train(text_to_train);
+
+    std::string text_to_encode = "";
+    
+    EXPECT_NO_THROW(tokenizer.encode(text_to_encode));
+    EXPECT_EQ(tokenizer.encode(text_to_encode).size(), 0);
+}
+
+// 4. Unseen sequence as text to encode
+TEST(TokenizerTest, EncodeUnseenSequence) {
+    Tokenizer tokenizer(500); 
+    std::string text_to_train = "abcdef";
+    
+    tokenizer.train(text_to_train);
+
+    std::string text_to_encode = "xyz";
+    
+    EXPECT_NO_THROW(tokenizer.encode(text_to_encode));
+    EXPECT_EQ(tokenizer.encode(text_to_encode).size(), 3);
+}
