@@ -18,4 +18,6 @@ class Tokenizer{
     public:
     Tokenizer(std::size_t target_vocab_size);
     void train(const std::string& text);
+    int get_vocab_size(void) const;
+    bool has_merge_rule(uint64_t pair_key) const;
 };

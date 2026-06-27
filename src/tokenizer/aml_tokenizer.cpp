@@ -75,3 +75,11 @@ void Tokenizer::train(const std::string& text){
         
     }
 }
+
+int Tokenizer::get_vocab_size() const{
+    return this -> vocab.size();
+}
+
+bool Tokenizer::has_merge_rule(uint64_t pair_key) const{
+    return this -> merge_rules.find(pair_key) != this -> merge_rules.end();
+}
