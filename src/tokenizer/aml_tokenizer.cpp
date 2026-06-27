@@ -83,3 +83,91 @@ int Tokenizer::get_vocab_size() const{
 bool Tokenizer::has_merge_rule(uint64_t pair_key) const{
     return this -> merge_rules.find(pair_key) != this -> merge_rules.end();
 }
+
+std::vector<int> Tokenizer::encode(const std::string& text){
+    std::vector<int> tokens;
+    tokens.reserve(text.size());
+
+    // firstly split input text into single bytes
+    for(const auto& symbol : text){
+        tokens.push_back(static_cast<int>(static_cast<unsigned char>(symbol)));
+    }
+
+    bool pair_was_made = true;  // track if the pair was made - if not, out text is fully splitted
+
+    while(pair_was_made){
+        std::vector<int> new_tokens;
+        new_tokens.reserve(tokens.size());
+        
+        // find all possible pair of ids in current state
+        std::vector<uint64_t> all_pairs = this -> find_all_existing_pairs(tokens);
+
+        // if no pair was found - we have splitted text successfully, stop the loop
+        if(all_pairs.empty()){
+            pair_was_made = false;
+            break;
+        }
+
+        // find the pair with minimal id
+        // minimal id means that this pair occured more often during the training
+        // that is why it is more important for the context 
+        uint64_t min_pair = this -> find_pair_with_min_id(all_pairs);
+
+        for(std::size_t i = 0; i < tokens.size();){
+            if(i + 1 < tokens.size()){
+                uint64_t left = static_cast<uint64_t>(tokens[i]);
+                uint32_t right = static_cast<uint32_t>(tokens[i + 1]);
+                uint64_t pair = ((left << 32) | right);
+                
+                // if current pair == min_pair - replace 2 tokens with this 1 pair
+                if(pair == min_pair){
+                    new_tokens.push_back(this -> merge_rules[pair]);
+                    i += 2;
+                }
+                // otherwise save the left
+                else{
+                    new_tokens.push_back(tokens[i]);
+                    i++;
+                }
+            }
+            else{
+                new_tokens.push_back(tokens[i]);
+                i++;
+            }
+        }
+        // update tokens - now it contains new created pair 
+        tokens = std::move(new_tokens);
+    }
+    return tokens;
+}
+
+std::vector<uint64_t> Tokenizer::find_all_existing_pairs(const std::vector<int>& tokens){
+    std::vector<uint64_t> all_pairs;
+    all_pairs.reserve(tokens.size());
+    for(std::size_t i = 0; i + 1 < tokens.size(); ++i){
+            uint64_t left = static_cast<uint64_t>(tokens[i]);
+            uint32_t right = static_cast<uint32_t>(tokens[i + 1]);
+            uint64_t pair = ((left << 32) | right);
+
+            // if pair is in our merge rules - push it 
+            if(this -> has_merge_rule(pair)){
+                all_pairs.push_back(pair);
+            }
+    }
+
+    return all_pairs;
+}
+
+uint64_t Tokenizer::find_pair_with_min_id(const std::vector<uint64_t>& all_pairs){
+    int min_id = this -> merge_rules[all_pairs[0]];
+    uint64_t min_pair = all_pairs[0];
+
+    for(const auto& pair : all_pairs){
+        if(this -> merge_rules[pair] < min_id){
+            min_id = merge_rules[pair];
+            min_pair = pair;
+        }
+    }
+
+    return min_pair;
+}

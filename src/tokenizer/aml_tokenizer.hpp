@@ -13,11 +13,14 @@ class Tokenizer{
     std::unordered_map<int, std::string> vocab;
     std::size_t target_vocab_size;  // max volume of tokenizer
 
-    std::vector<int> encode(const std::string& text);
+    std::vector<uint64_t> find_all_existing_pairs(const std::vector<int>& tokens);
+    uint64_t find_pair_with_min_id(const std::vector<uint64_t>& all_pairs);
 
     public:
     Tokenizer(std::size_t target_vocab_size);
     void train(const std::string& text);
     int get_vocab_size(void) const;
     bool has_merge_rule(uint64_t pair_key) const;
+    std::vector<int> encode(const std::string& text);
+
 };
