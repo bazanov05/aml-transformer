@@ -171,3 +171,14 @@ uint64_t Tokenizer::find_pair_with_min_id(const std::vector<uint64_t>& all_pairs
 
     return min_pair;
 }
+
+std::string Tokenizer::decode(const std::vector<int>& ids) const{
+    std::string result = "";
+
+    for(const auto& id : ids){
+        // .at() throws out_of_range if the id was not found in vocab
+        result += this -> vocab.at(id);
+    }
+
+    return result;
+}

@@ -22,5 +22,5 @@ class Tokenizer{
     int get_vocab_size(void) const;
     bool has_merge_rule(uint64_t pair_key) const;
     std::vector<int> encode(const std::string& text);
-
+    std::string decode(const std::vector<int>& ids) const;
 };
