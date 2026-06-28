@@ -182,3 +182,49 @@ std::string Tokenizer::decode(const std::vector<int>& ids) const{
 
     return result;
 }
+
+void Tokenizer::save(const std::string& filepath){
+    std::ofstream file(filepath);
+
+    // if file was not opened - throw an error 
+    if(!file.is_open()){
+        throw std::runtime_error("Failed to open .json file");
+    }
+
+    json j;
+    json rules;
+
+    // json is not able to convert uint_64 to string 
+    // that is why we iterate throught merge rules and convert it to string 
+    for(auto& pair : this -> merge_rules){
+        rules[std::to_string(pair.first)] = pair.second;
+    }
+
+    j["merge_rules"] = rules;
+    j["vocab"] = this -> vocab;
+
+    file << j.dump(4);
+}
+
+void Tokenizer::load(const std::string& filepath){
+    std::ifstream file(filepath);
+
+    if(!file.is_open()){
+        throw std::runtime_error("Failed to open .json file");
+    }
+
+    json j;
+    file >> j;  // load file data to json obj
+
+    // clear the state before loading new data 
+    this->merge_rules.clear();
+    this->vocab.clear();
+
+    std::unordered_map<std::string, int> rules = j["merge_rules"].get<std::unordered_map<std::string, int>>();
+    this -> vocab = j["vocab"].get<std::unordered_map<int, std::string>>();
+
+    // convert string keys to uint_64 via stoull(string to long long)
+    for(auto& rule : rules){
+        this -> merge_rules[std::stoull(rule.first)] = rule.second;
+    }
+}

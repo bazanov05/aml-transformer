@@ -3,6 +3,10 @@
 #include <vector>
 #include <string>
 #include <cstdint> // needed for uint64_t
+#include <nlohmann/json.hpp>    // for json format
+#include <fstream>  // to work with files
+
+using json = nlohmann::json;
 
 class Tokenizer{
     private:
@@ -23,4 +27,6 @@ class Tokenizer{
     bool has_merge_rule(uint64_t pair_key) const;
     std::vector<int> encode(const std::string& text);
     std::string decode(const std::vector<int>& ids) const;
+    void save(const std::string& filepath);
+    void load(const std::string& filepath);
 };
