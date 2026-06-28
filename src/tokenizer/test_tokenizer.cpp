@@ -136,3 +136,59 @@ TEST(TokenizerTest, EncodeUnseenSequence) {
     EXPECT_NO_THROW(tokenizer.encode(text_to_encode));
     EXPECT_EQ(tokenizer.encode(text_to_encode).size(), 3);
 }
+
+// 5. not ASCII symbols
+TEST(TokenizerTest, EncodeNotASCII) {
+    Tokenizer tokenizer(256); 
+    std::string text_to_train = "abcdef";
+    
+    tokenizer.train(text_to_train);
+
+    std::string text_to_encode = "łó";
+    
+    EXPECT_NO_THROW(tokenizer.encode(text_to_encode));
+    EXPECT_EQ(tokenizer.encode(text_to_encode).size(), 4);
+    EXPECT_EQ(tokenizer.encode(text_to_encode), std::vector<int>({197, 130, 195, 179}));
+}
+
+// 6. Rule-Rank Priority
+TEST(TokenizerTest, EncodeRankPriority) {
+    Tokenizer tokenizer(500); 
+    std::string text_to_train = "abbcbcbcabbc"; // bc has higher priority
+    
+    tokenizer.train(text_to_train);
+
+    std::string text_to_encode = "abc";
+    
+    EXPECT_NO_THROW(tokenizer.encode(text_to_encode));
+    EXPECT_EQ(tokenizer.encode(text_to_encode).size(), 2);
+    EXPECT_EQ(tokenizer.encode(text_to_encode), std::vector<int>({97, 256}));
+}
+
+// 7. Hierarchical Structural Merging
+TEST(TokenizerTest, EncodeMerging) {
+    Tokenizer tokenizer(500); 
+    std::string text_to_train = "ababababababab";
+    
+    tokenizer.train(text_to_train);
+
+    std::string text_to_encode = "abab";
+    
+    EXPECT_NO_THROW(tokenizer.encode(text_to_encode));
+    EXPECT_EQ(tokenizer.encode(text_to_encode).size(), 1);
+    EXPECT_EQ(tokenizer.encode(text_to_encode), std::vector<int>({257}));
+}
+
+// 8. Trailing Unmerged Token
+TEST(TokenizerTest, EncodeTrailingUnmergedToken) {
+    Tokenizer tokenizer(500); 
+    std::string text_to_train = "ababababababab";
+    
+    tokenizer.train(text_to_train);
+
+    std::string text_to_encode = "abc";
+    
+    EXPECT_NO_THROW(tokenizer.encode(text_to_encode));
+    EXPECT_EQ(tokenizer.encode(text_to_encode).size(), 2);
+    EXPECT_EQ(tokenizer.encode(text_to_encode), std::vector<int>({256, 99}));
+}
