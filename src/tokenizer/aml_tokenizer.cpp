@@ -186,7 +186,6 @@ std::string Tokenizer::decode(const std::vector<int>& ids) const{
 void Tokenizer::save(const std::string& filepath){
     std::ofstream file(filepath);
 
-    // if file was not opened - throw an error 
     if(!file.is_open()){
         throw std::runtime_error("Failed to open .json file");
     }
@@ -194,14 +193,23 @@ void Tokenizer::save(const std::string& filepath){
     json j;
     json rules;
 
-    // json is not able to convert uint_64 to string 
-    // that is why we iterate throught merge rules and convert it to string 
-    for(auto& pair : this -> merge_rules){
+    // serialize merge_rules
+    // json cannot convert uint_64t to string
+    for(auto& pair : this->merge_rules){
         rules[std::to_string(pair.first)] = pair.second;
     }
-
     j["merge_rules"] = rules;
-    j["vocab"] = this -> vocab;
+
+    // serialize vocab as arrays of integers (bytes) to avoid UTF-8 crashes
+    json vocab_json;
+    for(const auto& pair : this->vocab){
+        json byte_array = json::array();
+        for(unsigned char c : pair.second){
+            byte_array.push_back(static_cast<int>(c)); // Store raw byte as int
+        }
+        vocab_json[std::to_string(pair.first)] = byte_array;
+    }
+    j["vocab"] = vocab_json;
 
     file << j.dump(4);
 }
@@ -214,17 +222,22 @@ void Tokenizer::load(const std::string& filepath){
     }
 
     json j;
-    file >> j;  // load file data to json obj
+    file >> j; 
 
-    // clear the state before loading new data 
     this->merge_rules.clear();
     this->vocab.clear();
 
-    std::unordered_map<std::string, int> rules = j["merge_rules"].get<std::unordered_map<std::string, int>>();
-    this -> vocab = j["vocab"].get<std::unordered_map<int, std::string>>();
+    // reconstruct merge_rules
+    for (auto& el : j["merge_rules"].items()) {
+        this->merge_rules[std::stoull(el.key())] = el.value().get<int>();
+    }
 
-    // convert string keys to uint_64 via stoull(string to long long)
-    for(auto& rule : rules){
-        this -> merge_rules[std::stoull(rule.first)] = rule.second;
+    // reconstruct vocab strings from integer arrays
+    for (auto& el : j["vocab"].items()) {
+        std::string token_str = "";
+        for (int byte_val : el.value()) {
+            token_str += static_cast<char>(byte_val); // cast int back to raw byte
+        }
+        this->vocab[std::stoi(el.key())] = token_str;
     }
 }

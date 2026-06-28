@@ -1,5 +1,7 @@
 #include <gtest/gtest.h>
 #include "aml_tokenizer.hpp"
+#include <fstream>
+#include <cstdio> // needed for std::remove
 
 // helper to construct a 64-bit pair key for assertions
 uint64_t make_pair_key(int left, int right) {
@@ -266,4 +268,67 @@ TEST(TokenizerTest, FullPipelineReconstruction) {
     std::string decoded_text = tokenizer.decode(encoded_ids);
     
     EXPECT_EQ(decoded_text, original_text);
+}
+
+// 9. Persistence Case: Full Save and Load Cycle
+TEST(TokenizerTest, SaveAndLoadCycle) {
+    std::string test_filename = "test_tokenizer_state.json";
+    std::string text_to_train = "abababababcabc";
+    
+    // Setup and train the primary tokenizer
+    Tokenizer original_tokenizer(260);
+    original_tokenizer.train(text_to_train);
+    
+    // Save state to disk
+    EXPECT_NO_THROW(original_tokenizer.save(test_filename));
+    
+    // Instantiate a completely blank tokenizer and load the state
+    Tokenizer restored_tokenizer(260);
+    EXPECT_NO_THROW(restored_tokenizer.load(test_filename));
+    
+    // Assert structural integrity is identical
+    EXPECT_EQ(restored_tokenizer.get_vocab_size(), original_tokenizer.get_vocab_size());
+    
+    // Assert functional integrity is identical via encoding paths
+    std::string evaluation_text = "abcab";
+    EXPECT_EQ(restored_tokenizer.encode(evaluation_text), original_tokenizer.encode(evaluation_text));
+    
+    // Clean up temporary file from disk
+    std::remove(test_filename.c_str());
+}
+
+// 10. Persistence Case: Loading Overwrites Existing State Clear Check
+TEST(TokenizerTest, LoadClearsPreviousState) {
+    std::string file_a = "tokenizer_a.json";
+    std::string file_b = "tokenizer_b.json";
+    
+    // Tokenizer A: Trained on 'xyz' pattern
+    Tokenizer tokenizer_a(260);
+    tokenizer_a.train("xyzxyzxyz");
+    tokenizer_a.save(file_a);
+    
+    // Tokenizer B: Trained on 'abc' pattern
+    Tokenizer tokenizer_b(262);
+    tokenizer_b.train("abcabcabcabc");
+    tokenizer_b.save(file_b);
+    
+    // Load Tokenizer A's file into Tokenizer B's instance
+    EXPECT_NO_THROW(tokenizer_b.load(file_a));
+    
+    // Tokenizer B should now mirror Tokenizer A perfectly, losing its own original vocabulary scale
+    EXPECT_EQ(tokenizer_b.get_vocab_size(), tokenizer_a.get_vocab_size());
+    EXPECT_EQ(tokenizer_b.encode("xyz"), tokenizer_a.encode("xyz"));
+    
+    // Clean up files
+    std::remove(file_a.c_str());
+    std::remove(file_b.c_str());
+}
+
+// 11. Persistence Case: Handling Invalid File Paths
+TEST(TokenizerTest, SaveAndLoadInvalidPaths) {
+    Tokenizer tokenizer(256);
+    
+    // Attempting to read or write to an impossible system directory path should throw runtime errors
+    EXPECT_THROW(tokenizer.save("/invalid_dir_xyz/tokenizer.json"), std::runtime_error);
+    EXPECT_THROW(tokenizer.load("/invalid_dir_xyz/tokenizer.json"), std::runtime_error);
 }
