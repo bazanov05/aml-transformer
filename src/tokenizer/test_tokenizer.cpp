@@ -192,3 +192,78 @@ TEST(TokenizerTest, EncodeTrailingUnmergedToken) {
     EXPECT_EQ(tokenizer.encode(text_to_encode).size(), 2);
     EXPECT_EQ(tokenizer.encode(text_to_encode), std::vector<int>({256, 99}));
 }
+
+// 1. Base Case: Standard ASCII string without any merged pairs
+TEST(TokenizerTest, DecodeMethodBasic) {
+    Tokenizer tokenizer(500); 
+    // Assuming tokenizer has base vocab 0-255 initialized
+    std::vector<int> input_ids = {97, 98, 99}; // 'a', 'b', 'c'
+    
+    EXPECT_EQ(tokenizer.decode(input_ids), "abc");
+}
+
+// 2. Base Case: Reconstructing merged tokens
+TEST(TokenizerTest, DecodeMergedTokens) {
+    Tokenizer tokenizer(500); 
+    tokenizer.train("abab"); // 'ab' becomes 256
+    
+    std::vector<int> input_ids = {256, 256};
+    
+    EXPECT_EQ(tokenizer.decode(input_ids), "abab");
+}
+
+// 3. Edge Case: Empty vector input
+TEST(TokenizerTest, DecodeEmptyVector) {
+    Tokenizer tokenizer(500); 
+    std::vector<int> input_ids = {};
+    
+    EXPECT_EQ(tokenizer.decode(input_ids), "");
+}
+
+// 4. Edge Case: Single token ID
+TEST(TokenizerTest, DecodeSingleToken) {
+    Tokenizer tokenizer(500); 
+    std::vector<int> input_ids = {122}; // 'z'
+    
+    EXPECT_EQ(tokenizer.decode(input_ids), "z");
+}
+
+// 5. Edge Case: Non-ASCII UTF-8 reconstruction
+TEST(TokenizerTest, DecodeNotASCII) {
+    Tokenizer tokenizer(500); 
+    // "łó" splits into 4 bytes: 197, 130, 195, 179
+    std::vector<int> input_ids = {197, 130, 195, 179};
+    
+    EXPECT_EQ(tokenizer.decode(input_ids), "łó");
+}
+
+// 6. Structural Case: Mixed sequence of base bytes and merged tokens
+TEST(TokenizerTest, DecodeMixedSequence) {
+    Tokenizer tokenizer(500);
+    tokenizer.train("abbcbcbcabbc"); // 'bc' -> 256
+    
+    // 'a' (97), 'bc' (256), 'bc' (256), 'z' (122)
+    std::vector<int> input_ids = {97, 256, 256, 122};
+    
+    EXPECT_EQ(tokenizer.decode(input_ids), "abcbcz");
+}
+
+// 7. Security/Error Case: Out of bounds token ID (Tests the .at() method)
+TEST(TokenizerTest, DecodeInvalidTokenID) {
+    Tokenizer tokenizer(500); 
+    std::vector<int> input_ids = {97, 9999, 98}; // 9999 does not exist
+    
+    EXPECT_THROW(tokenizer.decode(input_ids), std::out_of_range);
+}
+
+// 8. Pipeline Case: Full cycle (Train -> Encode -> Decode)
+TEST(TokenizerTest, FullPipelineReconstruction) {
+    Tokenizer tokenizer(500);
+    std::string original_text = "Data engineering requires reliable systems.";
+    
+    tokenizer.train(original_text);
+    std::vector<int> encoded_ids = tokenizer.encode(original_text);
+    std::string decoded_text = tokenizer.decode(encoded_ids);
+    
+    EXPECT_EQ(decoded_text, original_text);
+}
