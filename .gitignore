@@ -40,3 +40,6 @@ checkpoints/
 *.swp
 *.swo
 train/
+.env
+env/
+.env
