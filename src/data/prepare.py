@@ -11,9 +11,9 @@ def train_tokenizer(tokenizer: Tokenizer, training_data: str, path: str = "token
     tokenizer.save(path)            # save rules to disk so we can load them during text generation
 
 
-def prepare_dataset(tokenizer: Tokenizer, text: str) -> torch.Tensor:
+def prepare_dataset(tokenizer: Tokenizer, text: str, device: str) -> torch.Tensor:
     """
     Encodes raw text into a 1D tensor of token IDs.
     """
     encoded_ids = tokenizer.encode(text)
-    return torch.tensor(encoded_ids, dtype=torch.int64, device="mps")
+    return torch.tensor(encoded_ids, dtype=torch.int64, device=device)
