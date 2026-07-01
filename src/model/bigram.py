@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn 
-from torch.nn.functional import cross_entropy
+from torch.nn.functional import cross_entropy, softmax
 
 
 class BigramLanguageModel(nn.Module):
@@ -49,10 +49,43 @@ class BigramLanguageModel(nn.Module):
             Y = Y.view(b * t)
             
             # cross_entropy in pytorch does not require softmax before
-            # it has in under the hood
+            # it has it under the hood
             loss = cross_entropy(input=logits, target=Y)
         else:
             loss = None
 
         return logits, loss
     
+    def generate(self, idx: torch.Tensor, max_new_tokens: int) -> torch.Tensor:
+        """
+        Generates new tokens  starting from a seed context.
+        
+        Args:
+            idx: Input tensor of token IDs, shape (batch_size, context_length).
+            max_new_tokens: Integer count of how many new tokens to append.
+               
+        Returns:
+            The extended tensor containing both the original context and all 
+            newly sampled tokens, shape (batch_size, context_length + max_new_tokens).
+        """
+        while max_new_tokens > 0:
+            # use only last tokens, in Bigram model only last token makes context 
+            last_tokens = idx[:, -1]    # last token from every batch, shape becomes [B]
+            last_tokens = torch.unsqueeze(last_tokens, dim=1)  # shape becomes [B, 1]
+            logits, _ = self(last_tokens)   # we do not need loss for now 
+
+            b, t, c = logits.shape
+            # we need prob distribution over the vocab_size dim, which is last dim
+            probabilities = softmax(logits.view(b * t, c), dim=-1)
+
+            # use multinomial instead of argmax to make text more original
+            # multinomial samples token based on it's prob
+            # prob = 30% - token is sampled in 30% cases
+            new_token = torch.multinomial(probabilities, num_samples=1)
+
+            # add new_token to context dim
+            idx = torch.cat(tensors=[idx, new_token], dim=1)
+
+            max_new_tokens -= 1
+        
+        return idx
