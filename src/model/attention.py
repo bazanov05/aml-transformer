@@ -64,4 +64,58 @@ class SelfAttention(nn.Module):
         # weighted sum of value vectors — each token absorbs context from attended positions
         # then we will add this new context to original Embedding to shift token 
         return weights @ V  
+
+
+class MultiHeadAttention(nn.Module):
+    """
+    Runs multiple self-attention heads in parallel, each learning
+    different attention patterns. Concatenates their outputs and
+    projects back to d_model via a learned output projection W_O.
+    """
+    def __init__(self, d_model: int, num_of_heads: int):
+        """
+        d_model: input and output embedding dimension
+        num_of_heads: number of parallel attention heads
+        Note: d_model must be divisible by num_of_heads
+        """
+        if not d_model % num_of_heads == 0:
+            raise ValueError("d_model must be divisible by num_of_heads")
+        
+        super().__init__()
+
+        # last layer of attention - collects results from diff heads
+        # and translates them to one unit answer
+        self._W_O = nn.Linear(
+            in_features=d_model,
+            out_features=d_model,
+            bias=False
+        )
+
+        self._d_k = d_model // num_of_heads
+        self._heads = nn.ModuleList()   # use ModuleList so torch can track parameters
+
+        
+        for _ in range(num_of_heads):
+            self._heads.append(SelfAttention(d_model=d_model, d_k=self._d_k, d_v=self._d_k))
+    
+    def forward(self, X: torch.Tensor) -> torch.Tensor:
+        """
+        Runs all attention heads on the same input, concatenates
+        their outputs and projects through W_O.
+        
+        X: [batch, seq_len, d_model]
+        returns: [batch, seq_len, d_model]
+        """
+        results = []
+
+        # collect results from all heads
+        for head in self._heads:
+            result_from_single_head = head(X)
+            results.append(result_from_single_head)
+        
+        # each single result has [batch, seq_len, d_v]
+        # d_v = d_model // num_heads, so to recreate d_model dim we just cat all the results
+        # as we have exactly num_heads results, d_v size each
+        results = torch.cat(results, dim=-1)
+        return self._W_O(results)
     
