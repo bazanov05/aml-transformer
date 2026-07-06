@@ -1,6 +1,6 @@
 import pytest
 import torch
-from src.model.transformer import FeedForward
+from src.model.transformer import FeedForward, TransformerBlock
 
 
 @pytest.fixture
@@ -63,3 +63,50 @@ def test_ff_batch_independence(ff_input, ff_layer):
     # Only the modified token output should change
     assert torch.allclose(output_orig[0, 1:, :], output_modified[0, 1:, :], atol=1e-6)
     assert not torch.allclose(output_orig[0, 0, :], output_modified[0, 0, :], atol=1e-6)
+
+
+@pytest.fixture
+def tb_input(device):
+    # Shape: [batch_size=2, seq_len=5, d_model=16]
+    return torch.rand([2, 5, 16], dtype=torch.float32, device=device)
+
+
+@pytest.fixture
+def tb_block(device):
+    return TransformerBlock(d_model=16, num_of_heads=4).to(device)
+
+
+def test_tb_shape_correctness(tb_input, tb_block):
+    output = tb_block(tb_input)
+    
+    assert isinstance(output, torch.Tensor)
+    assert output.shape == tb_input.shape
+
+
+def test_tb_gradients_flow(tb_input, tb_block):
+    output = tb_block(tb_input)
+    loss = output.sum()
+    loss.backward()
+
+    # Verify LayerNorm parameters receive gradients
+    assert tb_block._ln1.weight.grad is not None
+    assert tb_block._ln2.weight.grad is not None
+    
+    # Verify Attention and FFN receive gradients
+    assert tb_block._multi_head_attention._W_O.weight.grad is not None
+    assert tb_block._ffn._model[0].weight.grad is not None
+
+
+def test_tb_batch_independence(tb_input, tb_block):
+    output_orig = tb_block(tb_input)
+    
+    # Modify the second sequence in the batch
+    tb_input_modified = tb_input.clone()
+    tb_input_modified[1, :, :] = torch.rand(5, 16)
+    
+    output_modified = tb_block(tb_input_modified)
+    
+    # Sequence 0 should remain completely unaffected by Sequence 1
+    assert torch.allclose(output_orig[0], output_modified[0], atol=1e-6)
+    # Sequence 1 should be different
+    assert not torch.allclose(output_orig[1], output_modified[1], atol=1e-6)
