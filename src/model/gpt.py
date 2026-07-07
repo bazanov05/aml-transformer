@@ -1,7 +1,7 @@
 from src.model.transformer import TransformerBlock
 import torch.nn as nn
 import torch
-from torch.nn.functional import cross_entropy
+from torch.nn.functional import cross_entropy, softmax
 
 
 class GPT(nn.Module):
@@ -37,7 +37,7 @@ class GPT(nn.Module):
         self._last_layer_norm = nn.LayerNorm(normalized_shape=d_model)
         self._linear_head = nn.Linear(in_features=d_model, out_features=vocab_size)
     
-    def forward(self, X: torch.Tensor, Y: torch.Tensor = None) -> torch.Tensor:
+    def forward(self, X: torch.Tensor, Y: torch.Tensor = None) -> tuple[torch.Tensor, torch.Tensor | None]:
         """
         Executes the forward pass through the full GPT architecture.
         
@@ -85,3 +85,41 @@ class GPT(nn.Module):
             loss = cross_entropy(logits_flat, Y_flat)
         
         return logits, loss 
+    
+    def generate(self, X: torch.Tensor, context_length: int) -> torch.Tensor:
+        """
+        Autoregressively generates new tokens based on the provided context.
+        
+        Args:
+            X: Input tensor of context token IDs, shape (batch_size, seq_len).
+            context_length: The number of new tokens to generate.
+        
+        Returns:
+            Tensor containing the original context and the newly generated tokens, 
+            shape (batch_size, seq_len + context_length).
+        """
+        for _ in range(context_length):
+            _, c = X.shape
+
+            # check if the current token is longer that max allowed length
+            # if it is longer - we need to slice X input tensor 
+            if c >= self._max_seq_len:
+                start_index = c - self._max_seq_len
+                logits, _ = self.forward(X[:, start_index:start_index + self._max_seq_len])
+            else:
+                logits, _ = self.forward(X)
+
+            # logits has size [batch, seq_len, vocab_size]
+            # so logits has prediction for every token in the sequence 
+            # we want only the last one to generate new word 
+            logits_last_step = logits[:, -1, :] # size: [batch, vocab_size]
+            probabilities = softmax(logits_last_step, dim=-1)
+
+            # sample - do not always choose token with the highest prediction
+            new_token = torch.multinomial(input=probabilities, num_samples=1)
+
+            # add new token to an input tensor 
+            X = torch.cat(tensors=[X, new_token], dim=-1)
+        
+        return X
+    
