@@ -1,0 +1,13 @@
+services:
+  postgres:   
+    image: postgres:16  # use version nr 16
+    container_name: aml_postgres
+    env_file:
+      - .env    # need .env variables to create container from image 
+    ports:
+      - "5432:5432"   # runs on port 5432
+    volumes:
+      - aml_postgres_data:/var/lib/postgresql/data  # bridge ssd : temporary inside linux virtual machine inside container 
+
+volumes:
+  aml_postgres_data:
