@@ -3,7 +3,7 @@ from src.data.prepare import prepare_dataset, train_tokenizer
 from torch.utils.data import DataLoader, Subset
 from aml_tokenizer import Tokenizer
 import os 
-from src.model.bigram import BigramLanguageModel
+from src.model.gpt import GPT
 from torch.optim import AdamW
 import torch
 
@@ -44,8 +44,19 @@ def main():
     training_dataloader = DataLoader(training_dataset, batch_size=128, shuffle=True)
     validation_dataloader = DataLoader(validation_dataset, batch_size=32, shuffle=True)
 
-    bigram = BigramLanguageModel(vocab_size=target_vocab_size).to(device=device)
-    optimizer = AdamW(params=bigram.parameters(), lr=3e-4)
+    d_model = 64
+    num_of_heads = 4
+    num_of_blocks = 3
+    max_seq_len = context_length  
+
+    model = GPT(
+        vocab_size=target_vocab_size,
+        d_model=d_model,
+        num_of_heads=num_of_heads,
+        num_of_blocks=num_of_blocks,
+        max_seq_len=max_seq_len
+    ).to(device=device)
+    optimizer = AdamW(params=model.parameters(), lr=3e-4)
     epochs = 100
 
     patience_rate = 0
@@ -54,12 +65,15 @@ def main():
 
     for epoch in range(epochs):
         total_train_loss = 0
+
+        # apply train mode - some neurons will be killed
+        model.train()
         for X, Y in training_dataloader:
             X, Y = X.to(device), Y.to(device)
 
             optimizer.zero_grad()   # resets gradients before calculations
 
-            _, loss = bigram(X, Y)
+            _, loss = model(X, Y)
             loss.backward()     # calculate gradients
             optimizer.step()    # update wieghts 
             total_train_loss += loss.item()
@@ -67,12 +81,15 @@ def main():
         mean_train_loss = total_train_loss / len(training_dataloader)
         
         total_val_loss = 0
+
+        # apply val mode - all neurons will be alive
+        model.eval()
         for X, Y in validation_dataloader:
             X, Y = X.to(device), Y.to(device)
 
             # we do not want to compute gradients for validation data 
             with torch.no_grad():
-                _, loss = bigram(X, Y)
+                _, loss = model(X, Y)
                 total_val_loss += loss.item()
         
         # calculate mean loss across all batches
@@ -83,7 +100,7 @@ def main():
         if mean_val_loss < best_loss:
             best_loss = mean_val_loss
             patience_rate = 0   # reset patience rate 
-            torch.save(obj=bigram.state_dict(), f=MODEL_STATS_PATH) # save best weights
+            torch.save(obj=model.state_dict(), f=MODEL_STATS_PATH) # save best weights
         else:
             # if model perfomance on validation data becomes worse
             # increase patience rate
@@ -92,14 +109,14 @@ def main():
             # if we hit the limit - we started overfitting
             # stop the training 
             if patience_rate >= max_patience_rate:
-                bigram.load_state_dict(torch.load(MODEL_STATS_PATH, weights_only=True))
+                model.load_state_dict(torch.load(MODEL_STATS_PATH, weights_only=True))
                 break
     
     first_token = 0
     idx = torch.tensor([[first_token]], device=device, dtype=torch.int64)
 
     context_length = 25
-    result = bigram.generate(idx, context_length)
+    result = model.generate(idx, context_length)
     result = result.squeeze(dim=0)
     result = result.tolist()
     decoded_text = tokenizer.decode(result)
