@@ -36,6 +36,7 @@ class SelfAttention(nn.Module):
         )
 
         self._d_k = d_k
+        self._dropout = nn.Dropout(p=0.1)
     
     def forward(self, X: torch.Tensor) -> torch.Tensor:
         """
@@ -60,6 +61,9 @@ class SelfAttention(nn.Module):
         weights = (Q @ K.transpose(-2, -1)) / float(self._d_k ** 0.5)
         weights = weights + causal_mask # add mask to prevent learning from future tokens
         weights = softmax(weights, dim=-1)  # apply softmax to get probabilities
+
+        # kill some connections between tokens, so model can learn context deeply
+        weights = self._dropout(weights)
 
         # weighted sum of value vectors — each token absorbs context from attended positions
         # then we will add this new context to original Embedding to shift token 
@@ -93,7 +97,7 @@ class MultiHeadAttention(nn.Module):
 
         self._d_k = d_model // num_of_heads
         self._heads = nn.ModuleList()   # use ModuleList so torch can track parameters
-
+        self._dropout = nn.Dropout(p=0.1)
         
         for _ in range(num_of_heads):
             self._heads.append(SelfAttention(d_model=d_model, d_k=self._d_k, d_v=self._d_k))
@@ -117,5 +121,9 @@ class MultiHeadAttention(nn.Module):
         # d_v = d_model // num_heads, so to recreate d_model dim we just cat all the results
         # as we have exactly num_heads results, d_v size each
         results = torch.cat(results, dim=-1)
-        return self._W_O(results)
+
+        results = self._W_O(results)
+        results = self._dropout(results)   # kill some features
+
+        return results
     

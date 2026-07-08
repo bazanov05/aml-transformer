@@ -23,7 +23,9 @@ class FeedForward(nn.Module):
         self._model = nn.Sequential(
             nn.Linear(in_features=d_model, out_features=4*d_model),
             nn.GELU(),
-            nn.Linear(in_features=4*d_model, out_features=d_model)
+            nn.Dropout(p=0.1),  # kill some features out of 4 * d_model 
+            nn.Linear(in_features=4*d_model, out_features=d_model),
+            nn.Dropout(p=0.1)   # kill some results of Layer2, so next Transformers do not rely strongly on the output of FFN 
         )
     
     def forward(self, X: torch.Tensor) -> torch.Tensor:
