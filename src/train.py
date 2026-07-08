@@ -30,7 +30,7 @@ def main():
         tokenizer.load(TOKENIZER_PATH)
     # otherwise - train tokenizer on input data
     else:
-        train_tokenizer(tokenizer, training_data)
+        train_tokenizer(tokenizer, training_data, path=TOKENIZER_PATH)
 
     # create 1D tensor of ids 
     ids = prepare_dataset(tokenizer, text=training_data, device=device)
