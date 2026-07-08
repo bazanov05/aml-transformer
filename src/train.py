@@ -109,9 +109,11 @@ def main():
             # if we hit the limit - we started overfitting
             # stop the training 
             if patience_rate >= max_patience_rate:
-                model.load_state_dict(torch.load(MODEL_STATS_PATH, weights_only=True))
                 break
-    
+
+    # load best weights after the training loop
+    model.load_state_dict(torch.load(MODEL_STATS_PATH, weights_only=True))
+
     first_token = 0
     idx = torch.tensor([[first_token]], device=device, dtype=torch.int64)
 
