@@ -25,7 +25,7 @@ def insert_epoch(conn, run_id: int, epoch_num: int, train_loss: float, val_loss:
 
     conn.commit()
 
-    return cursor.fetchone()[0]
+    return cursor.fetchone()["id"]
 
 
 def get_epochs_for_run(conn, run_id: int):
@@ -37,8 +37,8 @@ def get_epochs_for_run(conn, run_id: int):
         run_id - id of the run to fetch epochs for.
 
     Returns:
-        List of tuples, each tuple representing one epoch as
-        (id, run_id, epoch_num, train_loss, val_loss, created_at).
+        List of Dicts, each Dict representing one epoch as
+        {id, run_id, epoch_num, train_loss, val_loss, created_at}.
         Returns empty list if no epochs exist for that run.
     """
     cursor = conn.cursor()
@@ -62,8 +62,8 @@ def get_best_epoch_per_run(conn):
         conn - connection to Postgres server inside Docker.
 
     Returns:
-        List of tuples, each tuple representing the best epoch per run as
-        (run_id, epoch_num, val_loss). One row per run, ordered by run_id.
+        List of Dicts, each Dict representing the best epoch per run as
+        {run_id, epoch_num, val_loss}. One row per run, ordered by run_id.
         Returns empty list if no epochs exist.
     """
     cursor = conn.cursor()

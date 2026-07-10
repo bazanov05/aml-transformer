@@ -1,6 +1,7 @@
 import psycopg_pool
 import os
 from dotenv import load_dotenv
+from psycopg.rows import dict_row
 
 load_dotenv()
 
@@ -20,5 +21,6 @@ def close_pool():
 
 def get_db():
     with pool.connection() as conn: # borrow connection from pool
+        conn.row_factory = dict_row   # now quieries will return dict instead of tuple
         yield conn      # give this conn to FastAPI, get_db() freezes here 
     

@@ -12,7 +12,8 @@ def create_run(conn, d_model: int, lr: float, num_of_blocks: int, num_of_heads: 
     Returns:
         id of new created run in db.
     """
-    cursor = conn.cursor() # create cursor 
+
+    cursor = conn.cursor()  # create cursor
     
     cursor.execute(
         """
@@ -25,7 +26,7 @@ def create_run(conn, d_model: int, lr: float, num_of_blocks: int, num_of_heads: 
 
     conn.commit()   # confirm the INSERT 
 
-    id = cursor.fetchone()[0] # fetch the returned id
+    id = cursor.fetchone()["id"] # fetch the returned id
 
     return id
 
@@ -39,7 +40,7 @@ def get_run(conn, id: int):
         id - id of the run to fetch.
 
     Returns:
-        Tuple of (id, d_model, lr, num_of_blocks, num_of_heads, created_at)
+        Dict of {id, d_model, lr, num_of_blocks, num_of_heads, created_at}
         or None if no run with that id exists.
     """
     cursor = conn.cursor()
@@ -62,8 +63,8 @@ def get_all_runs(conn):
         conn - connection to Postgres server inside Docker.
 
     Returns:
-        List of tuples, each tuple representing one run as
-        (id, d_model, lr, num_of_blocks, num_of_heads, created_at).
+        List of Dicts, each Dict representing one run as
+        {id, d_model, lr, num_of_blocks, num_of_heads, created_at}.
         Returns empty list if no runs exist.
     """
     cursor = conn.cursor()
@@ -86,7 +87,7 @@ def get_best_run(conn):
         conn - connection to Postgres server inside Docker.
 
     Returns:
-        Tuple of (run_id, val_loss) for the best performing run,
+        Dict of {run_id, val_loss} for the best performing run,
         or None if no epochs exist yet.
     """
     cursor = conn.cursor()
