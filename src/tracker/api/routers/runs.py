@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
-from src.tracker.api.schemas import RunCreate, RunResponse
+from src.tracker.api.schemas import RunCreate, RunResponse, BestRunResponse
 from src.tracker.db.connection import get_db
 from src.tracker.db.runs import (
     create_run,
@@ -51,7 +51,7 @@ def get_runs(db=Depends(get_db)):
     return all_runs
 
 
-@run_router.get(path="/runs/best", response_model=RunResponse)
+@run_router.get(path="/runs/best", response_model=BestRunResponse)
 def get_the_best_run(db=Depends(get_db)):
     """
     Fetches the training run with the lowest validation loss across all epochs.
