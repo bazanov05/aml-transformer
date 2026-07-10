@@ -37,4 +37,9 @@ class BestEpochResponse(BaseModel):
     run_id: int
     epoch_num: int
     val_loss: float
+
+
+class BestRunResponse(BaseModel):
+    run_id: int
+    val_loss: float
     
