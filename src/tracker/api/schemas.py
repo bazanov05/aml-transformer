@@ -31,3 +31,10 @@ class EpochResponse(BaseModel):
     train_loss: float
     val_loss: float
     created_at: datetime
+
+
+class BestEpochResponse(BaseModel):
+    run_id: int
+    epoch_num: int
+    val_loss: float
+    
