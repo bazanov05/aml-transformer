@@ -10,7 +10,13 @@ pool = None
 
 def init_pool():
     global pool
-    conninfo = f"host={os.getenv('DB_HOST')} port={os.getenv('DB_PORT')} dbname={os.getenv('DB_NAME')} user={os.getenv('DB_USER')} password={os.getenv('DB_PASSWORD')}"
+    host = (os.getenv('DB_HOST') or '127.0.0.1').strip()
+    port = (os.getenv('DB_PORT') or '5432').strip()
+    dbname = (os.getenv('DB_NAME') or 'aml_db').strip()
+    user = (os.getenv('DB_USER') or 'aml_user').strip()
+    password = (os.getenv('DB_PASSWORD') or 'aml_password').strip()
+    
+    conninfo = f"host={host} port={port} dbname={dbname} user={user} password={password}"
     pool = psycopg_pool.ConnectionPool(conninfo=conninfo)
 
 
