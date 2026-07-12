@@ -1,5 +1,5 @@
 from src.train import train
-from src.tracker.db.connection import init_pool, close_pool, pool
+from src.tracker.db import connection
 from src.tracker.db.runs import get_best_run
 from torch.utils.data import Subset, DataLoader
 from src.data.dataset import AMLDataset
@@ -36,7 +36,7 @@ def load_configs(path: str) -> list:
 
 
 def main():
-    init_pool() # create pool of connects 
+    connection.init_pool() # create pool of connects 
 
     # choose device based on it's avialability 
     device = "mps" if torch.backends.mps.is_available() else "cuda" if torch.cuda.is_available() else "cpu"
@@ -46,7 +46,7 @@ def main():
 
     # train tokenizer once or load if already trained
     target_vocab_size = 2048
-    context_length = 64 # for AMLDataset and for Positional Embedding
+    context_length = 32 # for AMLDataset and for Positional Embedding
     tokenizer = Tokenizer(target_vocab_size)
 
     # load Tokenizer's dict from json file if it exists
@@ -63,10 +63,10 @@ def main():
 
     # create dataset and dataloaders once
     dataset = AMLDataset(ids=ids, context_length=context_length)
-    training_subset = Subset(dataset, indices=range(0, int(len(dataset) * 0.9)))
-    validation_subset = Subset(dataset, indices=range(int(len(dataset) * 0.9), len(dataset)))
+    training_subset = Subset(dataset=dataset, indices=range(0, int(len(dataset) * 0.9)))
+    validation_subset = Subset(dataset=dataset, indices=range(int(len(dataset) * 0.9), len(dataset)))
 
-    training_dataloader = DataLoader(dataset=training_subset, batch_size=128, shuffle=True)
+    training_dataloader = DataLoader(dataset=training_subset, batch_size=32, shuffle=True)
     validation_dataloader = DataLoader(dataset=validation_subset, batch_size=32, shuffle=True)
 
     # load hyperparameter configs
@@ -74,10 +74,10 @@ def main():
 
     runs_counter = 1
 
-    # run sweep
-    with pool.connection() as conn:
-        conn.row_factory = dict_row     # db will return results as dict, not tuple
-        for config in configs:
+    # run sweep, create separate conn for every invidual run
+    for config in configs:
+        with connection.pool.connection() as conn:
+            conn.row_factory = dict_row     # db will return results as dict, not tuple
             print(f"RUN NR: {runs_counter}")
             print(f"\nStarting run: {config}")
             train(
@@ -94,7 +94,7 @@ def main():
             )
             runs_counter += 1
 
-    close_pool()
+    connection.close_pool()
 
 
 if __name__ == "__main__":
