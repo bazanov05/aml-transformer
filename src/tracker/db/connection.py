@@ -10,24 +10,42 @@ pool = None
 
 def init_pool():
     global pool
+
     host = (os.getenv('DB_HOST') or '127.0.0.1').strip()
-    
-    if host == 'localhost':
-        host = '127.0.0.1'
-        
     port = (os.getenv('DB_PORT') or '5432').strip()
     dbname = (os.getenv('DB_NAME') or 'aml_db').strip()
     user = (os.getenv('DB_USER') or 'aml_user').strip()
     password = (os.getenv('DB_PASSWORD') or 'aml_password').strip()
-    
-    conninfo = f"host={host} port={port} dbname={dbname} user={user} password={password} connect_timeout=10"
-    
+
+    conninfo = (
+        f"host={host} "
+        f"port={port} "
+        f"dbname={dbname} "
+        f"user={user} "
+        f"password={password} "
+        f"connect_timeout=10"
+    )
+
     try:
-        pool = psycopg_pool.ConnectionPool(conninfo=conninfo, min_size=1, max_size=5, timeout=30)
+        pool = psycopg_pool.ConnectionPool(
+            conninfo=conninfo,
+            min_size=1,
+            max_size=5,
+            timeout=30,
+            open=True
+        )
+
+        pool.wait() # wait until min_size num of conns are ready cause pool is async 
+
+        # force actual connection test
+        with pool.connection() as conn:
+            conn.execute("SELECT 1")
+
         print("Connected with PostgreSQL!")
+
     except Exception as e:
         print(f"Error with connecting to DB: {e}")
-        raise RuntimeError("Cannot init connection pool.") from e
+        raise
 
 
 def close_pool():
