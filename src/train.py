@@ -27,7 +27,7 @@ def train(
     ).to(device=device)
 
     optimizer = AdamW(params=model.parameters(), lr=lr)
-    epochs = 100
+    epochs = 50
     patience_rate = 0
     max_patience_rate = 5
     best_loss = float("inf")
