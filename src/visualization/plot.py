@@ -6,6 +6,7 @@ from src.tracker.db.epochs import(
 )
 import pandas as pd
 import matplotlib.pyplot as plt
+from psycopg.rows import dict_row
 
 
 def val_loss_per_config_run(num_of_runs: int, file_for_plot: str):
@@ -21,6 +22,7 @@ def val_loss_per_config_run(num_of_runs: int, file_for_plot: str):
     data_from_trainigs = []
 
     with connection.pool.connection() as conn:
+        conn.row_factory = dict_row
         for run in range(1, num_of_runs + 1):
             data_from_trainigs.extend(get_epochs_for_run(conn=conn, run_id=run))
 
@@ -49,6 +51,7 @@ def best_epoch_per_each_run(file_for_plot: str):
     data_from_trainigs = []
 
     with connection.pool.connection() as conn:
+        conn.row_factory = dict_row
         data_from_trainigs.extend(get_best_epoch_per_run(conn=conn))
     data_from_trainigs = pd.DataFrame(data=data_from_trainigs)
 
