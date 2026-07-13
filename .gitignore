@@ -27,6 +27,7 @@ checkpoints/
 *.csv
 *.txt
 !CMakeLists.txt
+!requirements.txt
 *.jsonl
 *.pt
 *.pth
