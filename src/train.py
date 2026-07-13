@@ -17,7 +17,27 @@ def train(
         device: str,
         target_vocab_size: int,
         context_length: int):
-    
+    """
+    Trains the GPT model using the specified hyperparameters, logs metrics 
+    for each epoch into the database, and implements an early stopping mechanism.
+
+    Args:
+        db: Active database connection used to log runs and epoch statistics.
+        training_dataloader (DataLoader): DataLoader supplying batches of training data.
+        validation_dataloader (DataLoader): DataLoader supplying batches of validation data.
+        d_model (int): Embedding dimension size for the transformer architecture.
+        lr (float): Learning rate for the AdamW optimizer.
+        num_of_heads (int): Number of attention heads in the Multi-Head Attention layers.
+        num_of_blocks (int): Number of transformer blocks (layers) in the model.
+        device (str): Device to run the computations on (e.g., 'mps', 'cuda', 'cpu').
+        target_vocab_size (int): Total vocabulary size supported by the tokenizer.
+        context_length (int): Maximum sequence length (context window) for the model.
+
+    Returns:
+        tuple: A tuple containing:
+            - run_id (int): The unique identifier generated for this specific configuration run.
+            - best_loss (float): The lowest validation loss achieved during training.
+    """
     model = GPT(
         vocab_size=target_vocab_size,
         d_model=d_model,
